@@ -15,7 +15,8 @@ def userbook_key(username):
 
 class MainPage(webapp2.RequestHandler):
     def get(self):
-        logging.info("Shouldn't get here with POST")
+        logging.info("In get")
+        #logging.info("fullname %s" % fullname)
         #username = self.request.params.get("name")
         #logging.info("User name is %s" % username)
         #self.response.headers['Content-Type'] = 'text/plain'
@@ -33,10 +34,17 @@ class MainPage(webapp2.RequestHandler):
         # Find sid for this pal
         users = PurpleUser.all()
         users.filter("username == ", pal)
+        #TODO look for single user - more than one possible?
+        for user in users:
+            sipendpoint = ':'.join(("sip", user.phonosid))
 
         tropo = Tropo()
+        if sipendpoint:
+            tropo.say("User is found")
+        else:
+            tropo.say("User is not found")
+
         #tropo.transfer("sip:d6561a48-b069-4f31-9166-d0d32f0e8fe4@phono3-ext.voxeolabs.net")
-        tropo.say("Hello Everybody")
         json = tropo.RenderJson()
         logging.info ("Sending json back to Tropo")
         self.response.out.write(json)

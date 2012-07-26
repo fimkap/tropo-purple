@@ -24,25 +24,30 @@ class MainPage(webapp2.RequestHandler):
         #self.response.out.write(json.dumps(username))
 
     def post (self):
+        tropo = Tropo()
         s = Session(self.request.body)
         #logging.info("session: %s " % self.request.body)
         callerID = s.fromaddress['id']
-        pal = s.headers['x-username']
-        
         logging.info ("Caller ID: %s " % callerID)
-        logging.info ("Pal : %s " % pal)
-        # Find sid for this pal
-        users = PurpleUser.all()
-        users.filter("username == ", pal)
-        #TODO look for single user - more than one possible?
-        for user in users:
-            sipendpoint = ':'.join(("sip", user.phonosid))
+        if 'x-username' in s.headers:
+            pal = s.headers['x-username']
+            logging.info ("Pal : %s " % pal)
+            # Find sid for this pal
+            users = PurpleUser.all()
+            users.filter("username == ", pal)
+            #TODO look for single user - more than one possible?
+            sipendpoint = ''
+            for user in users:
+                sipendpoint = ':'.join(("sip", user.phonosid))
 
-        tropo = Tropo()
-        if sipendpoint:
-            tropo.say("User is found")
+            logging.info ("sip endpoint: %s " % sipendpoint)
+            if len(sipendpoint) != 0:
+                tropo.transfer(sipendpoint)
+                #tropo.say("User is found")
+            else:
+                tropo.say("User is not found")
         else:
-            tropo.say("User is not found")
+            tropo.say("This is a purple application!")
 
         #tropo.transfer("sip:d6561a48-b069-4f31-9166-d0d32f0e8fe4@phono3-ext.voxeolabs.net")
         json = tropo.RenderJson()

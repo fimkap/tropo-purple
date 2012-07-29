@@ -3,25 +3,11 @@ import logging
 import json
 import webapp2
 from google.appengine.ext import db
-
-class PurpleUser(db.Model):
-    username = db.StringProperty()
-    phonosid = db.StringProperty()
-    presence = db.IntegerProperty()
-
-def userbook_key(username):
-  return db.Key.from_path('Userbook', username)
-    
+from tropopals import *
 
 class MainPage(webapp2.RequestHandler):
     def get(self):
         logging.info("In get")
-        #logging.info("fullname %s" % fullname)
-        #username = self.request.params.get("name")
-        #logging.info("User name is %s" % username)
-        #self.response.headers['Content-Type'] = 'text/plain'
-        #self.response.out.write(self.request.params)
-        #self.response.out.write(json.dumps(username))
 
     def post (self):
         tropo = Tropo()
@@ -32,12 +18,11 @@ class MainPage(webapp2.RequestHandler):
         if 'x-username' in s.headers:
             pal = s.headers['x-username']
             logging.info ("Pal : %s " % pal)
+
             # Find sid for this pal
-            users = PurpleUser.all()
-            users.filter("username == ", pal)
-            #TODO look for single user - more than one possible?
             sipendpoint = ''
-            for user in users:
+            user = TropoPals.get_record("1",pal)
+            if user:
                 sipendpoint = ':'.join(("sip", user.phonosid))
 
             logging.info ("sip endpoint: %s " % sipendpoint)
@@ -49,7 +34,6 @@ class MainPage(webapp2.RequestHandler):
         else:
             tropo.say("This is a purple application!")
 
-        #tropo.transfer("sip:d6561a48-b069-4f31-9166-d0d32f0e8fe4@phono3-ext.voxeolabs.net")
         json = tropo.RenderJson()
         logging.info ("Sending json back to Tropo")
         self.response.out.write(json)
@@ -58,23 +42,16 @@ class MainPage(webapp2.RequestHandler):
 class UserBook(webapp2.RequestHandler):
     def post(self):
         username = self.request.params.get("name")
-        purpleuser = PurpleUser(parent=userbook_key(username))
-        purpleuser.username = username;
         sid = self.request.params.get("sid")
-        purpleuser.phonosid = sid;
-        purpleuser.presence = 1
-        purpleuser.put()
-        # TODO hide JSON conversion in model class
-        users = PurpleUser.all()
-        users.filter("username != ", username)
-        usersDict = dict((user.username, {'sid' : user.phonosid, 'presence' : user.presence }) for user in users)
+        logging.info ("name: %s " % username)
+        logging.info ("sid: %s " % sid)
+        # TODO now just use default for user_id and context
+        rec = TropoPals.create_record("1", username, "context", sid)
+        if rec is None:
+            TropoPals.update_record("1", username, sid)
 
-        #q = db.GqlQuery("SELECT * FROM PurpleUser ")
-        #users = q.fetch(limit=None)
-        #usersDict = {}
-        #for user in users:
-        #    usersDict[user.username] = { 'name' : user.username, 'sid' : user.phonosid, 'presence' : user.presence }
-        self.response.out.write(json.dumps(usersDict))
+        # Return all users but the caller TODO check timestamp not to return offline users
+        self.response.out.write(json.dumps(TropoPals.ToDict(TropoPals.all())))
 
     def get(self):
         return self.post()
@@ -85,8 +62,3 @@ app = webapp2.WSGIApplication(
                                      ('/sign', UserBook)],
                                      debug=True)
 
-#def main():
-#    run_wsgi_app(application)
-#
-#if __name__ == "__main__":
-#    main()
